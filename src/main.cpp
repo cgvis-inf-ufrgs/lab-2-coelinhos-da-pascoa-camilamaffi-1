@@ -31,6 +31,8 @@
 #include <stdexcept>
 #include <algorithm>
 
+const float PI = 3.141592f;
+
 // Headers das bibliotecas OpenGL
 #include <glad/glad.h>   // Criação de contexto OpenGL 3.3
 #include <GLFW/glfw3.h>  // Criação de janelas do sistema operacional
@@ -244,7 +246,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "INF01047 - Seu Cartao - Seu Nome", NULL, NULL);
+    window = glfwCreateWindow(800, 600, "INF01047 - 00243691 - Camila Maffi", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -400,17 +402,100 @@ int main(int argc, char* argv[])
         #define BUNNY  1
         #define PLANE  2
 
-        // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-1.0f,0.0f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SPHERE);
-        DrawVirtualObject("the_sphere");
+        struct RabbitAnimationConfig
+        {
+            int count;
+            float radius;
+            float amplitude;
+            float scale;
+            float speed;
+            float jump_frequency;
+            float base_height;
+        };
 
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, BUNNY);
-        DrawVirtualObject("the_bunny");
+        struct EggAnimationConfig
+        {
+            float orbit_radius;
+            float scale;
+        };
+
+        const RabbitAnimationConfig rabbit_config = {
+            15,
+            3.0f,
+            1.0f,
+            0.4f,
+            0.90f,
+            4.0f,
+            0.4f
+        };
+
+        const EggAnimationConfig egg_config = {
+            1.0f,
+            0.5f
+        };
+
+        const float current_time = static_cast<float>(glfwGetTime());
+        const float full_circle = 2.0f * PI;
+        const float rabbit_y_rotation_offset = PI + PI / 2.0f;
+        const float special_rabbit_z_rotation_offset = PI / 4.0f;
+        const float egg_scale_xz = 0.75f * egg_config.scale;
+        const float egg_scale_y = egg_config.scale;
+
+        const glm::mat4 egg_local_transform_1 =
+            Matrix_Translate(
+                0.0f,
+                egg_config.orbit_radius * sin(current_time),
+                egg_config.orbit_radius * cos(current_time)
+            ) *
+            Matrix_Scale(egg_scale_xz, egg_scale_y, egg_scale_xz);
+
+        const glm::mat4 egg_local_transform_2 =
+            Matrix_Translate(
+                0.0f,
+                egg_config.orbit_radius * sin(current_time + PI),
+                egg_config.orbit_radius * cos(current_time + PI)
+            ) *
+            Matrix_Scale(egg_scale_xz, egg_scale_y, egg_scale_xz);
+
+        auto DrawSceneObject = [&](const glm::mat4& object_model_matrix, int object_id, const char* object_name)
+        {
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(object_model_matrix));
+            glUniform1i(g_object_id_uniform, object_id);
+            DrawVirtualObject(object_name);
+        };
+
+        for (int rabbit_index = 0; rabbit_index < rabbit_config.count; ++rabbit_index)
+        {
+            const float phase = (full_circle / rabbit_config.count) * rabbit_index;
+            const float animation_angle = phase - (current_time * rabbit_config.speed);
+
+            const float rabbit_x = rabbit_config.radius * cos(animation_angle);
+            const float rabbit_y = rabbit_config.amplitude * sin(animation_angle * rabbit_config.jump_frequency);
+            const float rabbit_z = rabbit_config.radius * sin(animation_angle);
+
+            const bool has_special_rotation = (rabbit_index % 4 == 0);
+            const float rabbit_rotation_z = has_special_rotation
+                ? animation_angle * rabbit_config.jump_frequency + special_rabbit_z_rotation_offset
+                : 0.0f;
+
+            const glm::mat4 rabbit_transform_base =
+                Matrix_Translate(rabbit_x, rabbit_y + rabbit_config.base_height, rabbit_z) *
+                Matrix_Rotate_Y(-animation_angle + rabbit_y_rotation_offset) *
+                Matrix_Scale(rabbit_config.scale, rabbit_config.scale, rabbit_config.scale);
+
+            const glm::mat4 rabbit_transform =
+                rabbit_transform_base *
+                Matrix_Rotate_Z(-rabbit_rotation_z);
+
+            DrawSceneObject(rabbit_transform, BUNNY, "the_bunny");
+
+            const glm::mat4& egg_parent_transform = has_special_rotation
+                ? rabbit_transform_base
+                : rabbit_transform;
+
+            DrawSceneObject(egg_parent_transform * egg_local_transform_1, SPHERE, "the_sphere");
+            DrawSceneObject(egg_parent_transform * egg_local_transform_2, SPHERE, "the_sphere");
+        }
 
         // Desenhamos o plano do chão
         model = Matrix_Translate(0.0f,-1.0f,0.0f) * Matrix_Scale(4.0f,1.0f,4.0f);
@@ -1483,4 +1568,3 @@ void PrintObjModelInfo(ObjModel* model)
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
-
