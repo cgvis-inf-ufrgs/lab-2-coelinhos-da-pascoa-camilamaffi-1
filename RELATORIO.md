@@ -52,7 +52,7 @@
 
 ## Você acha que conseguiu resolver o problema de forma adequada?
 
-Acredito que sim, 
+Acredito que sim, creio que a solução gerou uma reprodução fiel ao esperado.
 
 ## Se você quiser compartilhar mais alguma coisa, coloque aqui:
 
